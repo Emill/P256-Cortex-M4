@@ -17,7 +17,7 @@ To only compile in the features needed, the file `p256-cortex-m4-config.h` can b
 
 The library does not include a hash implementation (used during sign and verify), nor does it include a secure random number generator (used during keygen and sign). These functions must be implemented externally. Note that the secure random number generator must be for cryptographic purposes. In particular, `rand()` from the C standard library must not be used, while `/dev/urandom`, as can be found on many Unix systems, is compliant.
 
-Note: all `uint32_t` arrays represent 256-bit integers in little endian byte order (native to the CPU), located at a 4-byte alignment byte boundary. The `uint8_t` arrays either represent pure byte strings, or integers in big endian byte order (no alignment requirements). When interacting with other libraries, make sure to carefully understand the data format used by those libraries. Some data conversion routines for easier interopability can be found in the API.
+Note: all `uint32_t` arrays represent 256-bit integers in little-endian byte order (native to the CPU), located at a 4-byte alignment byte boundary. The `uint8_t` arrays either represent pure byte strings, or integers in big-endian byte order (no alignment requirements). When interacting with other libraries, make sure to carefully understand the data format used by those libraries. Some data conversion routines for easier interopability are included in the API.
 
 #### ECDSA/ECDH Keygen
 
@@ -30,7 +30,7 @@ do {
 } while (!p256_keygen(pubkey_x, pubkey_y, privkey));
 ```
 
-The result will now be contained in `pubkey_x`, `pubkey_y` and `privkey` (little endian).
+The result will now be contained in `pubkey_x`, `pubkey_y` and `privkey` (little-endian).
 
 #### ECDSA Sign
 
@@ -94,6 +94,38 @@ if (!p256_ecdh_calc_shared_secret(shared_secret, my_private_key, others_public_k
     // The shared_secret is now the same for both parts and may be used for cryptographic purposes
 }
 ```
+
+#### Endianness conversion
+
+If you are receiving or sending 32-byte long `uint8_t` arrays representing 256-bit integers in big-endian byte order, you may convert them to or from `uint32_t` arrays in little-endian byte order (which are commonly used in this library) using `p256_convert_endianness`.
+
+For example, before validating a signature, call:
+
+```C
+// Input values
+uint8_t signature_r_in[32] = ..., signature_s_in[32] = ...;
+
+// Output values
+uint32_t signature_r[8], signature_s[8];
+
+p256_convert_endianness(signature_r, signature_r_in, 32);
+p256_convert_endianness(signature_s, signature_s_in, 32);
+```
+
+After generating a signature, call:
+
+```C
+// Input values
+uint32_t signature_r[8] = ..., signature_s[8] = ...; // from p256_sign
+
+// Output values
+uint8_t signature_r_out[32], signature_s_out[32];
+
+p256_convert_endianness(signature_r_out, signature_r, 32);
+p256_convert_endianness(signature_s_out, signature_s, 32);
+```
+
+The same technique can be used for public keys.
 
 ### Testing
 
