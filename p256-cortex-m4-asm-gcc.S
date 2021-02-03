@@ -37,9 +37,9 @@
 // Selects one of many values
 // *r0 = output, *r1 = table, r2 = num coordinates, r3 = index to choose [0..7]
 // 547 cycles for affine coordinates
-	.type ecc_select_point, %function
-ecc_select_point:
-	.global ecc_select_point
+	.type P256_select_point, %function
+P256_select_point:
+	.global P256_select_point
 	push {r0,r2,r3,r4-r11,lr}
 	//frame push {r4-r11,lr}
 	//frame address sp,48
@@ -104,7 +104,7 @@ ecc_select_point:
 	add sp,#12
 	//frame address sp,36
 	pop {r4-r11,pc}
-	.size ecc_select_point, .-ecc_select_point
+	.size P256_select_point, .-P256_select_point
 #endif
 	
 #if include_p256_verify || include_p256_sign
@@ -1838,9 +1838,9 @@ P256_mul_mod_n:
 // r1: f
 // r2: g
 // r3: dest
-	.type divsteps2_31, %function
-divsteps2_31:
-	.global divsteps2_31
+	.type P256_divsteps2_31, %function
+P256_divsteps2_31:
+	.global P256_divsteps2_31
 	push {r3,r4-r8,lr}
 	//frame push {r4-r8,lr}
 	//frame address sp,28
@@ -1901,15 +1901,15 @@ divsteps2_31:
 	stm r3!,{r4-r7}
 	
 	pop {r4-r8,pc}
-	.size divsteps2_31, .-divsteps2_31
+	.size P256_divsteps2_31, .-P256_divsteps2_31
 
 // r0: a, r1: b
 // *r2: f,g
 // *r3: out
 // cycles: 132
-	.type matrix_mul_fg_9, %function
-matrix_mul_fg_9:
-	.global matrix_mul_fg_9
+	.type P256_matrix_mul_fg_9, %function
+P256_matrix_mul_fg_9:
+	.global P256_matrix_mul_fg_9
 	push {r4-r11,lr}
 	//frame push {r4-r11,lr}
 	
@@ -2011,16 +2011,16 @@ matrix_mul_fg_9:
 	stm r1!,{r3,r5,r6,r7,r12,lr}
 	
 	pop {r4-r11,pc}
-	.size matrix_mul_fg_9, .-matrix_mul_fg_9
+	.size P256_matrix_mul_fg_9, .-P256_matrix_mul_fg_9
 
 // r0: a, r1: b
 // *r2: x,y
 // *r3: out
 // cycles: 184
 	.align 2
-	.type matrix_mul_p256_order, %function
-matrix_mul_p256_order:
-	.global matrix_mul_p256_order
+	.type P256_matrix_mul_mod_n, %function
+P256_matrix_mul_mod_n:
+	.global P256_matrix_mul_mod_n
 	push {r4-r11,lr}
 	//frame push {r4-r11,lr}
 	
@@ -2168,7 +2168,7 @@ matrix_mul_p256_order:
 	pop {r4-r11,pc}
 	
 	.ltorg
-	.size matrix_mul_p256_order, .-matrix_mul_p256_order
+	.size P256_matrix_mul_mod_n, .-P256_matrix_mul_mod_n
 #else
 // *r0=u
 // *r1=x1

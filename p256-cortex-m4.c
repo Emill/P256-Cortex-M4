@@ -46,9 +46,9 @@ struct XYInteger {
     uint32_t value[8]; // unsigned value, 0 <= value < P256_order
 };
 
-int divsteps2_31(int delta, uint32_t f, uint32_t g, uint32_t res_matrix[4]);
-void matrix_mul_fg_9(uint32_t a, uint32_t b, const struct FGInteger fg[2], struct FGInteger *res);
-void matrix_mul_p256_order(uint32_t a, uint32_t b, const struct XYInteger xy[2], struct XYInteger *res);
+int P256_divsteps2_31(int delta, uint32_t f, uint32_t g, uint32_t res_matrix[4]);
+void P256_matrix_mul_fg_9(uint32_t a, uint32_t b, const struct FGInteger fg[2], struct FGInteger *res);
+void P256_matrix_mul_mod_n(uint32_t a, uint32_t b, const struct XYInteger xy[2], struct XYInteger *res);
 
 void P256_to_montgomery(uint32_t aR[8], const uint32_t a[8]);
 void P256_from_montgomery(uint32_t a[8], const uint32_t aR[8]);
@@ -60,7 +60,7 @@ void P256_add_mod_n(uint32_t res[8], const uint32_t a[8], const uint32_t b[8]);
 void P256_mod_n_inv_vartime(uint32_t res[8], const uint32_t a[8]);
 void P256_reduce_mod_n_32bytes(uint32_t res[8], const uint32_t a[8]);
 
-void ecc_select_point(uint32_t (*output)[8], uint32_t* table, uint32_t num_coordinates, uint32_t index);
+void P256_select_point(uint32_t (*output)[8], uint32_t* table, uint32_t num_coordinates, uint32_t index);
 
 void P256_jacobian_to_affine(uint32_t affine_mont_x[8], uint32_t affine_mont_y[8], const uint32_t jacobian_mont[3][8]);
 bool P256_point_is_on_curve(const uint32_t x_mont[8], const uint32_t y_mont[8]);
@@ -238,19 +238,19 @@ void P256_mod_n_inv(uint32_t out[8], const uint32_t in[8]) {
         // Scaled translation matrix Ti
         uint32_t matrix[4]; // element range: [-2^30, 2^31] (negative numbers are stored in two's complement form)
         
-        // Decode f and g into two's complement representation and use the lowest 32 bits in the divsteps2_31 calculation
+        // Decode f and g into two's complement representation and use the lowest 32 bits in the P256_divsteps2_31 calculation
         uint32_t negate_f = state[i % 2].fg[0].flip_sign;
         uint32_t negate_g = state[i % 2].fg[1].flip_sign;
-        delta = divsteps2_31(delta, (state[i % 2].fg[0].signed_value[0] ^ negate_f) - negate_f, (state[i % 2].fg[1].signed_value[0] ^ negate_g) - negate_g, matrix);
+        delta = P256_divsteps2_31(delta, (state[i % 2].fg[0].signed_value[0] ^ negate_f) - negate_f, (state[i % 2].fg[1].signed_value[0] ^ negate_g) - negate_g, matrix);
         
         // "Jump step", calculates the new f and g values that applies after 31 divstep2 iterations
-        matrix_mul_fg_9(matrix[0], matrix[1], state[i % 2].fg, &state[(i + 1) % 2].fg[0]);
-        matrix_mul_fg_9(matrix[2], matrix[3], state[i % 2].fg, &state[(i + 1) % 2].fg[1]);
+        P256_matrix_mul_fg_9(matrix[0], matrix[1], state[i % 2].fg, &state[(i + 1) % 2].fg[0]);
+        P256_matrix_mul_fg_9(matrix[2], matrix[3], state[i % 2].fg, &state[(i + 1) % 2].fg[1]);
         
         // Iterate the result vector
         // Due to montgomery multiplication inside this function, each step also adds a 2^-32 factor
-        matrix_mul_p256_order(matrix[0], matrix[1], state[i % 2].xy, &state[(i + 1) % 2].xy[0]);
-        matrix_mul_p256_order(matrix[2], matrix[3], state[i % 2].xy, &state[(i + 1) % 2].xy[1]);
+        P256_matrix_mul_mod_n(matrix[0], matrix[1], state[i % 2].xy, &state[(i + 1) % 2].xy[0]);
+        P256_matrix_mul_mod_n(matrix[2], matrix[3], state[i % 2].xy, &state[(i + 1) % 2].xy[1]);
     }
     // Calculates val^-1 = sgn(f) * v * 2^-744, where v is the "top-right corner" of the resulting T24*T23*...*T1 matrix.
     // In this implementation, at this point x contains v * 2^-744.
@@ -308,7 +308,7 @@ static void scalarmult_variable_base(uint32_t output_mont_x[8], uint32_t output_
     
     // e[63] is never negative
     #if has_d_cache
-    ecc_select_point(current_point, (uint32_t*)table, 3, e[63] >> 1);
+    P256_select_point(current_point, (uint32_t*)table, 3, e[63] >> 1);
     #else
     memcpy(current_point, table[e[63] >> 1], 96);
     #endif
@@ -319,7 +319,7 @@ static void scalarmult_variable_base(uint32_t output_mont_x[8], uint32_t output_
         }
         uint32_t selected_point[3][8];
         #if has_d_cache
-        ecc_select_point(selected_point, (uint32_t*)table, 3, abs_int(e[i]) >> 1);
+        P256_select_point(selected_point, (uint32_t*)table, 3, abs_int(e[i]) >> 1);
         #else
         memcpy(selected_point, table[abs_int(e[i]) >> 1], 96);
         #endif
@@ -375,7 +375,7 @@ static void scalarmult_fixed_base(uint32_t output_mont_x[8], uint32_t output_mon
             uint32_t mask = get_bit(scalar2, i + 32 + 1) | (get_bit(scalar2, i + 64 + 32 + 1) << 1) | (get_bit(scalar2, i + 2 * 64 + 32 + 1) << 2);
             if (i == 31) {
                 #if has_d_cache
-                ecc_select_point(current_point, (uint32_t*)p256_basepoint_precomp2[1], 2, mask);
+                P256_select_point(current_point, (uint32_t*)p256_basepoint_precomp2[1], 2, mask);
                 #else
                 memcpy(current_point, precomp[1][mask], 64);
                 #endif
@@ -386,7 +386,7 @@ static void scalarmult_fixed_base(uint32_t output_mont_x[8], uint32_t output_mon
                 uint32_t sign = get_bit(scalar2, i + 3 * 64 + 32 + 1) - 1; // positive: 0, negative: -1
                 mask = (mask ^ sign) & 7;
                 #if has_d_cache
-                ecc_select_point(selected_point, (uint32_t*)p256_basepoint_precomp2[1], 2, mask);
+                P256_select_point(selected_point, (uint32_t*)p256_basepoint_precomp2[1], 2, mask);
                 #else
                 memcpy(selected_point, precomp[1][mask], 64);
                 #endif
@@ -399,7 +399,7 @@ static void scalarmult_fixed_base(uint32_t output_mont_x[8], uint32_t output_mon
             uint32_t sign = get_bit(scalar2, i + 3 * 64 + 1) - 1; // positive: 0, negative: -1
             mask = (mask ^ sign) & 7;
             #if has_d_cache
-            ecc_select_point(selected_point, (uint32_t*)p256_basepoint_precomp2[0], 2, mask);
+            P256_select_point(selected_point, (uint32_t*)p256_basepoint_precomp2[0], 2, mask);
             #else
             memcpy(selected_point, precomp[0][mask], 64);
             #endif

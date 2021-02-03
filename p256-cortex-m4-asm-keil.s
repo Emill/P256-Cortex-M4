@@ -35,8 +35,8 @@
 ; Selects one of many values
 ; *r0 = output, *r1 = table, r2 = num coordinates, r3 = index to choose [0..7]
 ; 547 cycles for affine coordinates
-ecc_select_point proc
-	export ecc_select_point
+P256_select_point proc
+	export P256_select_point
 	push {r0,r2,r3,r4-r11,lr}
 	frame push {r4-r11,lr}
 	frame address sp,48
@@ -1814,8 +1814,8 @@ P256_mul_mod_n proc
 ; r1: f
 ; r2: g
 ; r3: dest
-divsteps2_31 proc
-	export divsteps2_31
+P256_divsteps2_31 proc
+	export P256_divsteps2_31
 	push {r3,r4-r8,lr}
 	frame push {r4-r8,lr}
 	frame address sp,28
@@ -1882,8 +1882,8 @@ divsteps2_31 proc
 ; *r2: f,g
 ; *r3: out
 ; cycles: 132
-matrix_mul_fg_9 proc
-	export matrix_mul_fg_9
+P256_matrix_mul_fg_9 proc
+	export P256_matrix_mul_fg_9
 	push {r4-r11,lr}
 	frame push {r4-r11,lr}
 	
@@ -1992,8 +1992,8 @@ matrix_mul_fg_9 proc
 ; *r3: out
 ; cycles: 184
 	align 4
-matrix_mul_p256_order proc
-	export matrix_mul_p256_order
+P256_matrix_mul_mod_n proc
+	export P256_matrix_mul_mod_n
 	push {r4-r11,lr}
 	frame push {r4-r11,lr}
 	
