@@ -3,6 +3,8 @@ P256 ECDH and ECDSA for Cortex-M4, Cortex-M33 and other 32-bit ARM processors
 
 This library implements highly optimimzed assembler versions for the NIST P-256 (secp256r1) elliptic curve for Cortex-M4/Cortex-M33. While optimized for these processors, it works on other newer 32-bit ARM processors as well.
 
+The DSP extension CPU feature is required for Cortex-M33.
+
 ### API
 
 For full API documentation, see the header file `p256-cortex-m4.h`.
