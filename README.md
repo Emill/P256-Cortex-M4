@@ -133,6 +133,8 @@ The same technique can be used for public keys.
 
 The library has been tested against test vectors from Project Wycheproof (https://github.com/google/wycheproof). To run the tests, first execute `node testgen.js > tests.c` using Node >= 10.4. Then add the project files according to "How to use" plus `tests.c` and `nrf52_tests_main.c` to a new clean nRF52840 project using e.g. Segger Embedded Studio or Keil µVision. Compile and run and make sure all tests pass, by verifying that `main` returns 0.
 
+Currently the work has been tested successfully on nRF52840, nRF5340 and MAX32670.
+
 ### Performance
 The following numbers were obtained on a nRF52840 with ICACHE turned on, using GCC as compiler with `-O2` optimization.
 
@@ -156,3 +158,10 @@ The code is written in Keil's assembler format but was converted to GCC's assemb
 
 ### Copying
 The code is licensed under the MIT license.
+
+### Thanks
+Thanks to ASSA ABLOY PPI for funding this work!
+
+https://github.com/assaabloy-ppi
+
+https://assaabloy.com
