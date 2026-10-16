@@ -34,6 +34,10 @@
 #define include_p256_verify 1
 #endif
 
+#ifndef include_p256_verify_prepared
+#define include_p256_verify_prepared 1
+#endif
+
 #ifndef include_p256_sign
 #define include_p256_sign 1
 #endif
@@ -117,6 +121,18 @@
 #endif
 
 /**
+ * Number of precomputed tables used by the specialized base point scalar multiplication routine
+ * (see use_fast_p256_basemult). Valid values are 2, 4 and 8.
+ * Each table takes 512 bytes of code space. With N tables, a scalar multiplication needs 64/N - 1
+ * point doublings (31, 15 or 7) and 63 point additions, so more tables make keygen and sign faster.
+ * When has_d_cache is 0, the tables are also copied to the stack during the scalar multiplication,
+ * so stack usage grows by the same amount (1, 2 or 4 kB).
+ */
+#ifndef fast_p256_basemult_tables
+#define fast_p256_basemult_tables 2
+#endif
+
+/**
  * Enable this to save some code space, at expense of performance.
  * When disabled, a specialized field squaring routine will be used rather
  * than re-using the multiplication routine.
@@ -129,6 +145,6 @@
 #define include_p256_basemult (include_p256_keygen || include_p256_sign || include_p256_raw_scalarmult_base)
 #define include_fast_p256_basemult (use_fast_p256_basemult && include_p256_basemult)
 #define include_p256_varmult (include_p256_ecdh || include_p256_raw_scalarmult_generic)
-#define include_p256_mult (include_p256_verify || include_p256_basemult || include_p256_varmult)
+#define include_p256_mult (include_p256_verify || include_p256_verify_prepared || include_p256_basemult || include_p256_varmult)
 
 #endif

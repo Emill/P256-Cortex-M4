@@ -107,7 +107,7 @@ P256_select_point:
 	.size P256_select_point, .-P256_select_point
 #endif
 	
-#if include_p256_verify || include_p256_sign
+#if include_p256_verify || include_p256_verify_prepared || include_p256_sign
 // in: *r0 = out, *r1 = a, *r2 = b
 // quite slow, so only used in code not critical for performance
 	.type mul288x288, %function
@@ -1535,7 +1535,7 @@ P256_times2:
 	.size P256_times2, .-P256_times2
 #endif
 
-#if include_p256_verify || include_p256_varmult || include_p256_decompress_point
+#if include_p256_verify || include_p256_verify_prepared || include_p256_varmult || include_p256_decompress_point || include_p256_decode_point
 	.align 2
 	// (2^256)^2 mod p
 R2_mod_p:
@@ -1563,6 +1563,25 @@ P256_to_montgomery:
 	stm r8,{r0-r7}
 	pop {r4-r11,pc}
 	.size P256_to_montgomery, .-P256_to_montgomery
+#endif
+
+#if include_p256_verify_prepared
+// If inputs are A*R mod p and B*R mod p, computes AB*R mod p
+// out may overlap with the inputs
+// in: *r1, *r2
+// out: *r0
+	.type P256_mul_mod_p, %function
+P256_mul_mod_p:
+	.global P256_mul_mod_p
+	push {r0,r4-r11,lr}
+	//frame push {r4-r11,lr}
+	//frame address sp,40
+	bl P256_mulmod
+	pop {r8}
+	//frame address sp,36
+	stm r8,{r0-r7}
+	pop {r4-r11,pc}
+	.size P256_mul_mod_p, .-P256_mul_mod_p
 #endif
 
 #if include_p256_basemult || include_p256_varmult || include_p256_decompress_point
@@ -1596,7 +1615,7 @@ P256_from_montgomery:
 	.size P256_from_montgomery, .-P256_from_montgomery
 #endif
 
-#if include_p256_verify || include_p256_varmult || include_p256_decompress_point || include_p256_decode_point
+#if include_p256_verify || include_p256_verify_prepared || include_p256_varmult || include_p256_decompress_point || include_p256_decode_point
 // Checks whether the input number is within [0,p-1]
 // in: *r0
 // out: r0 = 1 if ok, else 0
@@ -1631,7 +1650,7 @@ P256_check_range_p:
 // Arithmetics for the group order n =
 // 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551
 
-#if include_p256_verify || include_p256_sign
+#if include_p256_verify || include_p256_verify_prepared || include_p256_sign
 	.align 2
 P256_order_mu:
 	.word 0xeedf9bfe
@@ -1789,7 +1808,7 @@ P256_add_mod_n:
 	.size P256_add_mod_n, .-P256_add_mod_n
 #endif
 	
-#if include_p256_verify || include_p256_sign
+#if include_p256_verify || include_p256_verify_prepared || include_p256_sign
 // Multiplies two numbers in the range [0,2^256-1] mod n
 // out and in may overlap
 // in: *r1, *r2
@@ -2385,7 +2404,7 @@ P256_order:
 	.size P256_order, .-P256_order
 #endif
 
-#if include_p256_verify || include_p256_basemult || include_p256_raw_scalarmult_generic
+#if include_p256_verify || include_p256_verify_prepared || include_p256_basemult || include_p256_raw_scalarmult_generic
 // Checks whether the input number is within [1,n-1]
 // in: *r0
 // out: r0 = 1 if ok, else 0
@@ -2427,7 +2446,7 @@ P256_check_range_n:
 
 // Elliptic curve operations on the NIST curve P-256
 
-#if include_p256_verify || include_p256_varmult || include_p256_decompress_point || include_p256_decode_point
+#if include_p256_verify || include_p256_verify_prepared || include_p256_varmult || include_p256_decompress_point || include_p256_decode_point
 	.align 2
 b_mont:
 	.word 0x29c4bddf
@@ -2449,7 +2468,7 @@ three_mont:
 	.word 0x2
 #endif
 
-#if include_p256_verify || include_p256_varmult || include_p256_decode_point
+#if include_p256_verify || include_p256_verify_prepared || include_p256_varmult || include_p256_decode_point
 // Checks if a point is on curve
 // in: *r0 = x, *r1 = y, in Montgomery form
 // out: r0 = 1 if on curve, else 0
@@ -2611,7 +2630,7 @@ P256_decompress_point:
 	.size P256_decompress_point, .-P256_decompress_point
 #endif
 
-#if include_p256_basemult || include_p256_varmult
+#if include_p256_basemult || include_p256_varmult || include_p256_verify_prepared
 // *r0 = output affine montgomery x
 // *r1 = output affine montgomery y
 // *r2 = input jacobian montgomery
@@ -3125,7 +3144,7 @@ P256_add_sub_j:
 	.size P256_add_sub_j, .-P256_add_sub_j
 #endif
 
-#if include_p256_verify
+#if include_p256_verify || include_p256_verify_prepared
 // Determines whether r = x (mod n)
 // in: *r0 = r, *r1 = the result of the double scalarmult in jacobian form (Montgomery form)
 // out: r0 will contain 1 if valid, else 0

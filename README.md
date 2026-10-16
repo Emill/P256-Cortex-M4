@@ -77,6 +77,25 @@ if (p256_verify(pubkey_x, pubkey_y, hash, sizeof(hash), signature_r, signature_s
 }
 ```
 
+#### ECDSA Verify with a prepared public key
+
+When many signatures are verified with the same public key, such as for secure boot, the key can be prepared once. Each verification is then faster (see Performance).
+
+```C
+struct VerifyPrecomp ctx; // 1 kB, kept for as long as the key is used
+
+if (!p256_verify_prepare(&ctx, pubkey_x, pubkey_y)) {
+    // Invalid public key
+}
+
+// For each message, hashed as above:
+if (p256_verify_prepared(&ctx, hash, sizeof(hash), signature_r, signature_s)) {
+    // Signature is valid
+} else {
+    // Signature is invalid
+}
+```
+
 #### ECDH Shared secret
 
 After both parties have generated their key pair and exchanged their public keys, the shared secret can be generated. Both parties execute the following code.
@@ -131,7 +150,9 @@ The same technique can be used for public keys.
 
 ### Testing
 
-The library has been tested against test vectors from Project Wycheproof (https://github.com/google/wycheproof). To run the tests, first execute `node testgen.js > tests.c` using Node >= 10.4. Then add the project files according to "How to use" plus `tests.c` and `nrf52_tests_main.c` to a new clean nRF52840 project using e.g. Segger Embedded Studio or Keil µVision. Compile and run and make sure all tests pass, by verifying that `main` returns 0.
+The library has been tested against test vectors from Project Wycheproof (https://github.com/google/wycheproof). `tests.c` is pre-generated from Wycheproof vectors pinned to a fixed commit (`WYCHEPROOF_COMMIT` in `testgen.js`); to regenerate it, execute `node testgen.js > tests.c` using Node >= 10.4. To run the tests, add the project files according to "How to use" plus `tests.c` and `nrf52_tests_main.c` to a new clean nRF52840 project using e.g. Segger Embedded Studio or Keil µVision. Compile and run and make sure all tests pass, by verifying that `main` returns 0.
+
+The same tests can also run without hardware on emulated Cortex-M4 and Cortex-M33 boards: with `arm-none-eabi-gcc` and `qemu-system-arm` installed, run `make -C test/qemu` for the default configuration or `make -C test/qemu matrix` for all 64 combinations of CPU, `has_fpu`, `has_d_cache`, `use_mul_for_sqr`, `use_fast_p256_basemult` and `fast_p256_basemult_tables`.
 
 Currently the work has been tested successfully on nRF52840, nRF5340 and MAX32670.
 
@@ -146,9 +167,19 @@ Verify ECDSA | 976k | 15.3 ms
 Shared secret ECDH | 906k | 14.2 ms
 Point decompression | 48k | 0.75 ms
 
-With all features enabled, the full library takes 8.9 kB in compiled form. 1.5 kB can be saved by enabling options that trades code space for performance.
+With all features enabled, the full library takes 8.9 kB in compiled form, plus 1.2 kB for prepared verification (`include_p256_verify_prepared`). 1.5 kB can be saved by enabling options that trades code space for performance.
 
-The stack usage is at most 2 kB.
+These options trade code space for speed. The numbers are instructions measured with `make -C test/qemu bench` (emulated Cortex-M4, other options at their defaults), not hardware cycles:
+
+Option | Effect | Code size
+--- | --- | ---
+`fast_p256_basemult_tables` = 4 | Keygen 10% and sign 9% fewer instructions | +1.0 kB
+`fast_p256_basemult_tables` = 8 | Keygen 15% and sign 13% fewer instructions | +3.0 kB
+`p256_verify_prepared` instead of `p256_verify` | 38% fewer instructions per verification; preparing the key costs about 45% of one `p256_verify`, so it pays off from the second signature | +1.2 kB
+
+The stack usage is at most 2 kB with the default options. With `fast_p256_basemult_tables` set to 4 or 8 and `has_d_cache` set to 0, keygen and sign use 1 or 3 kB more, since the larger table is copied to the stack.
+
+To measure on hardware, build `p256_bench.c` and `nrf52_bench_main.c` (instead of the test files) and read `bench_cycles` in the debugger; it uses the DWT cycle counter, so porting it to another Cortex-M board only needs a different `main`. Without hardware, `make -C test/qemu bench` reports instructions per operation under QEMU. Instruction counts are not cycles, but they are useful for comparing changes.
 
 ### Security
 The implementation runs in constant time (unless input values are invalid) and uses a constant code memory access pattern, regardless of the scalar/private key in order to protect against side channel attacks. If desired, in particular when the processor has a data cache (like Cortex-A processors), the `has_d_cache` option can be enabled which also causes the RAM access pattern to be constant, at the expense of ~10% performance decrease.

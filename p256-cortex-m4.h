@@ -70,6 +70,40 @@ bool p256_verify(const uint32_t public_key_x[8], const uint32_t public_key_y[8],
                  __attribute__((warn_unused_result));
 #endif
 
+#if include_p256_verify_prepared
+/**
+ * Prepared public key state for p256_verify_prepared.
+ *
+ * The content shall be treated as opaque to the API user and shall not be inspected or modified.
+ */
+struct VerifyPrecomp {
+    uint32_t table[16][2][8];
+};
+
+/**
+ * Prepares a public key for verifying ECDSA signatures with p256_verify_prepared.
+ *
+ * This is useful when many signatures are verified with the same public key, such as for secure boot.
+ * The public key is validated the same way as in p256_verify, and tables computed from it are stored in "ctx".
+ * Each p256_verify_prepared call then needs 129 point doublings instead of the 257 that p256_verify needs.
+ *
+ * Returns true if the public key is valid. Otherwise false is returned, "ctx" is zeroed out and shall not be used.
+ */
+bool p256_verify_prepare(struct VerifyPrecomp *ctx, const uint32_t public_key_x[8], const uint32_t public_key_y[8])
+                         __attribute__((warn_unused_result));
+
+/**
+ * Verifies an ECDSA signature, using a public key prepared by p256_verify_prepare.
+ *
+ * Returns true if the signature is valid for the given input and the public key that "ctx" was prepared with,
+ * otherwise false.
+ */
+bool p256_verify_prepared(const struct VerifyPrecomp *ctx,
+                          const uint8_t* hash, uint32_t hashlen_in_bytes,
+                          const uint32_t r[8], const uint32_t s[8])
+                          __attribute__((warn_unused_result));
+#endif
+
 #if include_p256_sign
 /**
  * Creates an ECDSA signature.

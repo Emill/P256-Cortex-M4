@@ -26,6 +26,10 @@ const assert = require('assert');
 const https = require('https');
 const crypto = require('crypto');
 
+// Test vectors are pinned to a fixed C2SP/wycheproof commit so the generated tests.c is reproducible.
+const WYCHEPROOF_COMMIT = '7a325932231bd7a724c791c8b0d65ea4d6d2f435';
+const WYCHEPROOF_BASE = 'https://raw.githubusercontent.com/C2SP/wycheproof/' + WYCHEPROOF_COMMIT + '/testvectors_v1/';
+
 // Simple ECDSA implementation that is correct, but slow and not side channel safe. Only used to generate test data.
 q = 2n**256n - 2n**224n + 2n**192n + 2n**96n - 1n
 G = {x: 0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296n, y: 0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5n}
@@ -192,6 +196,11 @@ function httpsRequest(url) {
 		let data = '';
 
 		https.get(url, (res) => {
+			if (res.statusCode !== 200) {
+				res.resume();
+				reject(new Error('HTTP ' + res.statusCode + ' for ' + url));
+				return;
+			}
 			res.on('data', (chunk) => {
 				data += chunk;
 			});
@@ -201,7 +210,7 @@ function httpsRequest(url) {
 			res.on('error', (error) => {
 				reject(error);
 			});
-		});
+		}).on('error', reject);
 	});
 }
 
@@ -225,7 +234,7 @@ function toUIntArr(v, size, resizeLen) {
 }
 
 async function ecdhTests() {
-	let data = await httpsRequest('https://raw.githubusercontent.com/google/wycheproof/master/testvectors/ecdh_secp256r1_test.json');
+	let data = await httpsRequest(WYCHEPROOF_BASE + 'ecdh_secp256r1_test.json');
 	
 	data = JSON.parse(data);
 	const testGroups = data.testGroups;
@@ -324,13 +333,13 @@ async function ecdhTests() {
 }
 
 async function ecdsaVerifyTests() {
-	let data = await httpsRequest('https://raw.githubusercontent.com/google/wycheproof/master/testvectors/ecdsa_secp256r1_sha256_test.json');
+	let data = await httpsRequest(WYCHEPROOF_BASE + 'ecdsa_secp256r1_sha256_test.json');
 	
 	data = JSON.parse(data);
 	const testGroups = data.testGroups;
 	const newTests = [];
 	testGroups.forEach((testGroup) => {
-		const publicKey = Buffer.from(testGroup.key.uncompressed.slice(2), 'hex');
+		const publicKey = Buffer.from(testGroup.publicKey.uncompressed.slice(2), 'hex');
 		testGroup.tests.forEach((test) => {
 			const msg = crypto.createHash('sha256').update(test.msg, 'hex').digest();
 			const sig = Buffer.from(test.sig, 'hex');
@@ -349,6 +358,11 @@ async function ecdsaVerifyTests() {
 					return;
 				}
 				let num = sig.slice(pos + 2, pos + 2 + len);
+				if (num[0] & 0x80) {
+					// Negative DER INTEGER (e.g. missing leading zero): an encoding error, not a valid r or s
+					assert.equal(test.result, 'invalid', test.tcId);
+					return;
+				}
 				if (num.length == 33) {
 					if (num[0] !== 0) {
 						assert.equal(test.result, 'invalid');
@@ -372,12 +386,12 @@ async function ecdsaVerifyTests() {
 	const msgs = {}; let msgsSize = 0; const msgsArr = [];
 	const sigs = {}; let sigsSize = 0; const sigsArr = [];
 	newTests.forEach((test) => {
-		if (!(test.key in keys)) {keys[test.key] = keysSize++; keysArr.push(test.key);}
-		if (!(test.msg in msgs)) {msgs[test.msg] = msgsSize++; msgsArr.push(test.msg);}
-		if (!(test.sig in sigs)) {sigs[test.sig] = sigsSize++; sigsArr.push(test.sig);}
+		if (!(test.key.toString('hex') in keys)) {keys[test.key.toString('hex')] = keysSize++; keysArr.push(test.key);}
+		if (!(test.msg.toString('hex') in msgs)) {msgs[test.msg.toString('hex')] = msgsSize++; msgsArr.push(test.msg);}
+		if (!(test.sig.toString('hex') in sigs)) {sigs[test.sig.toString('hex')] = sigsSize++; sigsArr.push(test.sig);}
 	});
 	const resArr = newTests.map((test) => {
-		return {key: keys[test.key], msg: msgs[test.msg], sig: sigs[test.sig], result: test.result, tcId: test.tcId};
+		return {key: keys[test.key.toString('hex')], msg: msgs[test.msg.toString('hex')], sig: sigs[test.sig.toString('hex')], result: test.result, tcId: test.tcId};
 	}).map((test) => {
 		return ['key_' + test.key, 'msg_' + test.msg, 'sig_' + test.sig, test.result ? 1 : 0 /*, test.tcId*/];
 	});
@@ -406,6 +420,10 @@ bool run_tests(void) {
 	for (int i = 0; i < COUNTOF(verify_tests); i++) {
 		const struct VerifyTest* t = &verify_tests[i];
 		if (p256_verify(t->key, t->key + 8, t->msg, 32, t->sig, t->sig + 8) != t->result) {
+			return false;
+		}
+		struct VerifyPrecomp ctx;
+		if ((p256_verify_prepare(&ctx, t->key, t->key + 8) && p256_verify_prepared(&ctx, t->msg, 32, t->sig, t->sig + 8)) != t->result) {
 			return false;
 		}
 	}
